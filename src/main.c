@@ -140,7 +140,7 @@ int main4()
 	return 0;
 }
 
-int main()
+int main5()
 {
 	lcdInit();
 
@@ -166,4 +166,10 @@ int main()
 	lcdUninit();
 
 	return 0;
+}
+
+
+int main()
+{
+
 }
