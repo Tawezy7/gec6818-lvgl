@@ -75,12 +75,17 @@ int bmpShow(int x, int y, struct bmpInfo *bmpInfo)
 	// bmp 信息结构体 以及 像素数组结构体不能为空
 	if (bmpInfo && bmpInfo->bmpPixelArr)
 	{
+		#if 0  /*居中*/
 		int screen_center_x = 800 / 2;
 		int screen_center_y = 480 / 2;
 		int image_center_x = bmpInfo->bmpWidth / 2;
 		int image_center_y = bmpInfo->bmpHeight / 2;
 		int image_x = screen_center_x - image_center_x;
 		int image_y = screen_center_y - image_center_y;
+		#else
+		int image_x = 0;
+		int image_y = 0;
+		#endif
 		unsigned int color = 0;
 		unsigned int k = 0;
 		for (int i = 0; i < bmpInfo->bmpHeight; i++)
