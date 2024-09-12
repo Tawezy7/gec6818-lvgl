@@ -14,6 +14,7 @@ int touchFd = 0;
 
 // 触摸状态  默认松开
 TouchState touchstate = Release;
+int touchX = 0, touchY = 0;
 
 int touchInit()
 {
