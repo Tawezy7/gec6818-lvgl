@@ -135,8 +135,7 @@ static void touchpad_read(lv_indev_t * indev_drv, lv_indev_data_t * data)
 static bool touchpad_is_pressed(void)
 {
     /*Your code comes here*/
-
-    return false;
+    return pressed;
 }
 
 /*Get the x and y coordinates if the touchpad is pressed*/
@@ -144,8 +143,8 @@ static void touchpad_get_xy(int32_t * x, int32_t * y)
 {
     /*Your code comes here*/
 
-    (*x) = 0;
-    (*y) = 0;
+    (*x) = touchX;
+    (*y) = touchY;
 }
 
 /*------------------

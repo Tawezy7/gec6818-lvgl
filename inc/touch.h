@@ -3,6 +3,8 @@
 #ifndef _INC_TOUCH_H_
 #define _INC_TOUCH_H_
 
+extern int touchX,touchY,pressed;
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -20,6 +22,7 @@ extern "C"
     int touchGetXYRelease(int *x, int *y);
     TouchState touchPress(void);
     int touchFx(int x1, int y1, int x2, int y2);
+    int touchGetXYPress(void);
     /*...*/
 
 #ifdef __cplusplus

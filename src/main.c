@@ -379,6 +379,7 @@ int main9()
 
 #include "lvgl.h"
 #include "lv_port_disp.h"
+#include "lv_port_indev.h"
 #include "pthread.h"
 #include "lv_demos.h"
 
@@ -386,14 +387,15 @@ void *timer(void *arg)
 {
 	while (1)
 	{
-		lv_tick_inc(1);
-		usleep(1000);
+		lv_tick_inc(20);
+		usleep(20 * 1000);
 	}
 	return 0;
 }
 
 
-int main()
+#include "lvgl/src/drivers/evdev/lv_evdev.h" // for touch screen
+int main10()
 {
 	pthread_t tid;
 	int rc = pthread_create(&tid, NULL, timer, NULL);
@@ -404,7 +406,18 @@ int main()
 	}
 	lv_init();
 	lv_port_disp_init();
-	lv_demo_benchmark();
+	lv_indev_t *indev = lv_evdev_create(LV_INDEV_TYPE_POINTER,"/dev/input/event0");
+	lv_evdev_set_calibration(indev,0, 0, 1024, 600);
+
+	struct bmpInfo bmpInfo;
+	bmpGetInfo("./lean1024.bmp", &bmpInfo);
+	lv_obj_t *canvas = lv_canvas_create(lv_scr_act());
+	lv_obj_set_size(canvas, 320, 320);
+	lv_obj_align(canvas, LV_ALIGN_CENTER, 0, 0);
+	lv_canvas_set_buffer(canvas, bmpInfo.bmpPixelArr, bmpInfo.bmpWidth, bmpInfo.bmpHeight, LV_COLOR_FORMAT_RGB888);
+	lv_obj_t *button =lv_button_create(lv_scr_act());
+	lv_obj_t *label = lv_label_create(button);
+	lv_label_set_text(label, "Hello World");
 
 	while (1)
 	{
@@ -414,4 +427,9 @@ int main()
 }
 #endif
 
+int main()
+{
+	main10();
 
+	return 0;
+}

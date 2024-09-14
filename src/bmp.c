@@ -66,6 +66,8 @@ int bmpGetInfo(char *pathname, struct bmpInfo *bmpInfo)
 		bmpInfo->bmpPixelArr = malloc(bmpInfo->bmpPixelArrSize);
 		read(bmpInfo->bmpFd, bmpInfo->bmpPixelArr, bmpInfo->bmpPixelArrSize);
 
+		bmpReverse(bmpInfo);
+
 		close(bmpInfo->bmpFd);
 	}
 }
@@ -75,17 +77,17 @@ int bmpShow(int x, int y, struct bmpInfo *bmpInfo)
 	// bmp 信息结构体 以及 像素数组结构体不能为空
 	if (bmpInfo && bmpInfo->bmpPixelArr)
 	{
-		#if 0  /*居中*/
+#if 0 /*居中*/
 		int screen_center_x = 800 / 2;
 		int screen_center_y = 480 / 2;
 		int image_center_x = bmpInfo->bmpWidth / 2;
 		int image_center_y = bmpInfo->bmpHeight / 2;
 		int image_x = screen_center_x - image_center_x;
 		int image_y = screen_center_y - image_center_y;
-		#else
+#else
 		int image_x = 0;
 		int image_y = 0;
-		#endif
+#endif
 		unsigned int color = 0;
 		unsigned int k = 0;
 		for (int i = 0; i < bmpInfo->bmpHeight; i++)
@@ -115,7 +117,7 @@ int bmpShow(int x, int y, struct bmpInfo *bmpInfo)
 
 int bmpReverse(struct bmpInfo *bmpInfo)
 {
-    unsigned char *buff = malloc(bmpInfo->bmpPixelArrSize);
+	unsigned char *buff = malloc(bmpInfo->bmpPixelArrSize);
 	memcpy(buff, bmpInfo->bmpPixelArr, bmpInfo->bmpPixelArrSize);
 
 	int n = 0;
@@ -127,4 +129,24 @@ int bmpReverse(struct bmpInfo *bmpInfo)
 		n += 3;
 	}
 	free(buff);
+	//水平翻转
+	for (int i = 0; i < bmpInfo->bmpHeight; i++)
+	{
+		for (int j = 0; j < bmpInfo->bmpWidth / 2; j++)
+		{
+			unsigned char temp;
+			temp = bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + j * 3 + 0]; // R
+			bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + j * 3 + 0] = bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + (bmpInfo->bmpWidth - j - 1) * 3 + 0];
+			bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + (bmpInfo->bmpWidth - j - 1) * 3 + 0] = temp;
+			
+			temp = bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + j * 3 + 1]; // G
+			bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + j * 3 + 1] = bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + (bmpInfo->bmpWidth - j - 1) * 3 + 1];
+			bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + (bmpInfo->bmpWidth - j - 1) * 3 + 1] = temp;
+
+			temp = bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + j * 3 + 2]; // B
+			bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + j * 3 + 2] = bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + (bmpInfo->bmpWidth - j - 1) * 3 + 2];
+			bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + (bmpInfo->bmpWidth - j - 1) * 3 + 2] = temp;
+		}
+
+	}
 }
