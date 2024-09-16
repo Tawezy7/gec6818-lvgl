@@ -63,9 +63,23 @@ int bmpGetInfo(char *pathname, struct bmpInfo *bmpInfo)
 
 		// 将文件读写位置 偏移到 像素数组的地址偏移
 		lseek(bmpInfo->bmpFd, bmpInfo->bmpPixelOffset, SEEK_SET);
-		bmpInfo->bmpPixelArr = malloc(bmpInfo->bmpPixelArrSize);
-		read(bmpInfo->bmpFd, bmpInfo->bmpPixelArr, bmpInfo->bmpPixelArrSize);
 
+		int rowSizeWithPadding = (bmpInfo->bmpWidth * 3 + 3) & ~3; // 向上取整到4字节的倍数
+		int rowSizeWithoutPadding = bmpInfo->bmpWidth * 3;			// 实际行大小（不含对齐）
+		bmpInfo->bmpPixelArr = (unsigned char *)malloc(rowSizeWithoutPadding * bmpInfo->bmpHeight);
+
+		// read(bmpInfo->bmpFd, bmpInfo->bmpPixelArr, bmpInfo->bmpPixelArrSize);
+		unsigned char *rowBuffer = (unsigned char *)malloc(rowSizeWithPadding);
+		for (int i = 0; i < bmpInfo->bmpHeight; i++)
+		{
+			// 从文件读取一行数据（包含对齐字节）
+			read(bmpInfo->bmpFd, rowBuffer, rowSizeWithPadding);
+			// 将该行数据中实际的像素部分拷贝到新数组中
+			memcpy(bmpInfo->bmpPixelArr + i * rowSizeWithoutPadding, rowBuffer, rowSizeWithoutPadding);
+		}
+		free(rowBuffer);
+
+		bmpInfo->bmpPixelArrSize = rowSizeWithoutPadding * bmpInfo->bmpHeight;
 		bmpReverse(bmpInfo);
 
 		close(bmpInfo->bmpFd);
@@ -129,7 +143,7 @@ int bmpReverse(struct bmpInfo *bmpInfo)
 		n += 3;
 	}
 	free(buff);
-	//水平翻转
+	// 水平翻转
 	for (int i = 0; i < bmpInfo->bmpHeight; i++)
 	{
 		for (int j = 0; j < bmpInfo->bmpWidth / 2; j++)
@@ -138,7 +152,7 @@ int bmpReverse(struct bmpInfo *bmpInfo)
 			temp = bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + j * 3 + 0]; // R
 			bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + j * 3 + 0] = bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + (bmpInfo->bmpWidth - j - 1) * 3 + 0];
 			bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + (bmpInfo->bmpWidth - j - 1) * 3 + 0] = temp;
-			
+
 			temp = bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + j * 3 + 1]; // G
 			bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + j * 3 + 1] = bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + (bmpInfo->bmpWidth - j - 1) * 3 + 1];
 			bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + (bmpInfo->bmpWidth - j - 1) * 3 + 1] = temp;
@@ -147,6 +161,5 @@ int bmpReverse(struct bmpInfo *bmpInfo)
 			bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + j * 3 + 2] = bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + (bmpInfo->bmpWidth - j - 1) * 3 + 2];
 			bmpInfo->bmpPixelArr[i * bmpInfo->bmpWidth * 3 + (bmpInfo->bmpWidth - j - 1) * 3 + 2] = temp;
 		}
-
 	}
 }

@@ -275,9 +275,9 @@ int main7()
 					buff[buff_index] = '\0'; // 将语句以 \0 结尾
 
 					// 打印完整的 GPS 语句
-					printf("%s\n", buff);
-					//paserrGps(buff);
-					// 处理完一条语句，重置 buff 和 buff_index
+					//printf("%s\n", buff);
+					paserrGps(buff);
+					//  处理完一条语句，重置 buff 和 buff_index
 					memset(buff, 0, sizeof(buff));
 					buff_index = 0;
 					// 跳过 \r\n
@@ -393,6 +393,9 @@ void *timer(void *arg)
 	return 0;
 }
 
+void touching_cb(lv_event_t *e);
+void released_cb(lv_event_t *e);
+lv_obj_t *obj;
 
 #include "lvgl/src/drivers/evdev/lv_evdev.h" // for touch screen
 int main10()
@@ -406,18 +409,50 @@ int main10()
 	}
 	lv_init();
 	lv_port_disp_init();
-	lv_indev_t *indev = lv_evdev_create(LV_INDEV_TYPE_POINTER,"/dev/input/event0");
-	lv_evdev_set_calibration(indev,0, 0, 1024, 600);
+	lv_indev_t *indev = lv_evdev_create(LV_INDEV_TYPE_POINTER, "/dev/input/event0");
+	lv_evdev_set_calibration(indev, 0, 0, 1024, 600);
 
 	struct bmpInfo bmpInfo;
-	bmpGetInfo("./lean1024.bmp", &bmpInfo);
-	lv_obj_t *canvas = lv_canvas_create(lv_scr_act());
-	lv_obj_set_size(canvas, 320, 320);
-	lv_obj_align(canvas, LV_ALIGN_CENTER, 0, 0);
+	bmpGetInfo("./map.bmp", &bmpInfo);
+	obj = lv_obj_create(lv_scr_act());
+	lv_obj_set_style_bg_color(obj, lv_color_hex(0xaaaaaa), LV_PART_MAIN);
+	lv_obj_set_style_radius(obj,0,LV_PART_MAIN);
+	lv_obj_set_size(obj, 700, 460);
+	lv_obj_set_y(obj, 10);
+	
+	lv_obj_t *canvas = lv_canvas_create(obj);
+
+	lv_obj_remove_style(obj, NULL, LV_PART_SCROLLBAR);
+	// lv_obj_remove_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
+	lv_obj_add_event_cb(canvas, touching_cb, LV_EVENT_PRESSING, NULL);
+	lv_obj_add_event_cb(canvas, released_cb, LV_EVENT_RELEASED, NULL);
+
+	    /*Create an array for the points of the line*/
+    static lv_point_precise_t line_points[] = { {5, 5}, {70, 70}, {120, 10}, {180, 60}, {240, 10} };
+
+    /*Create style*/
+    static lv_style_t style_line;
+    lv_style_init(&style_line);
+    lv_style_set_line_width(&style_line, 8);
+	
+    lv_style_set_line_color(&style_line, lv_palette_main(LV_PALETTE_BLUE));
+    lv_style_set_line_rounded(&style_line, true);
+
+    /*Create a line and apply the new style*/
+    lv_obj_t * line1;
+    line1 = lv_line_create(canvas);
+    lv_line_set_points(line1, line_points, 5);     /*Set the points*/
+	lv_obj_add_style(line1, &style_line, 0);
+
 	lv_canvas_set_buffer(canvas, bmpInfo.bmpPixelArr, bmpInfo.bmpWidth, bmpInfo.bmpHeight, LV_COLOR_FORMAT_RGB888);
-	lv_obj_t *button =lv_button_create(lv_scr_act());
-	lv_obj_t *label = lv_label_create(button);
-	lv_label_set_text(label, "Hello World");
+
+	// lv_obj_t *label = lv_label_create(lv_scr_act());
+	// lv_font_t *font_hm = lv_binfont_create("A:/user/font_hm.bin");
+	// printf("Success to load font\n");
+	// lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
+	// lv_obj_set_width(label, 320);
+	// lv_obj_set_style_text_font(label, font_hm, 0);
+	// lv_label_set_text(label, "ESP32-S3 是一款集成 2.4 GHz Wi-Fi 和 Bluetooth 5 (LE) 的 MCU 芯片，支持远距离模式 (Long Range)。 ESP32-S3 搭载 Xtensa® 32 位 LX7 双核处理器，主频高达 240 MHz，内置 512 KB SRAM (TCM)，具有 45 个可编程 GPIO 管脚和丰富的通信接口。ESP32-S3 支持更大容量的高速 Octal SPI flash 和片外 RAM，支持用户配置数据缓存与指令缓存。ESP32-S3 集成 2.4 GHz Wi-Fi (802.11 b/g/n)，支持 40 MHz 带宽；其低功耗蓝牙子系统支持 Bluetooth 5 (LE) 和 Bluetooth Mesh，可通过 Coded PHY 与广播扩展实现远距离通信。它还支持 2 Mbps PHY，用于提高传输速度和数据吞吐量。ESP32-S3 的 Wi-Fi 和 Bluetooth LE 射频性能优越，在高温下也能稳定工作。");
 
 	while (1)
 	{
@@ -426,6 +461,33 @@ int main10()
 	}
 }
 #endif
+
+static int offsetx, offsety, tuoching;
+void touching_cb(lv_event_t *e)
+{
+	printf("touching\n");
+	lv_obj_move_foreground(obj);
+
+	lv_point_t click_point;
+	lv_indev_get_point(lv_indev_get_act(), &click_point);
+	printf("x:%d y:%d\n", click_point.x, click_point.y);
+	if (tuoching == 0 && click_point.y - lv_obj_get_y(obj) > 20)
+		return;
+
+	if (tuoching == 0)
+	{
+		offsetx = click_point.x - lv_obj_get_x(obj);
+		offsety = click_point.y - lv_obj_get_y(obj);
+		tuoching = 1;
+		return;
+	}
+	lv_obj_set_pos(obj, click_point.x - offsetx, click_point.y - offsety);
+}
+void released_cb(lv_event_t *e)
+{
+	printf("released\n");
+	tuoching = 0;
+}
 
 int main()
 {
