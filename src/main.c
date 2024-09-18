@@ -275,7 +275,7 @@ int main7()
 					buff[buff_index] = '\0'; // 将语句以 \0 结尾
 
 					// 打印完整的 GPS 语句
-					//printf("%s\n", buff);
+					printf("%s\n", buff);
 					paserrGps(buff);
 					//  处理完一条语句，重置 buff 和 buff_index
 					memset(buff, 0, sizeof(buff));
@@ -392,15 +392,22 @@ void *timer(void *arg)
 	}
 	return 0;
 }
+#define LEFT_OFFSET 10
 
-void touching_cb(lv_event_t *e);
-void released_cb(lv_event_t *e);
+static void drag_event_handler(lv_event_t *e);
+static void putmark_event_cb(lv_event_t *e);
+void location_cb(lv_event_t *e);
 lv_obj_t *obj;
+lv_obj_t *canvas;
+lv_obj_t *bt_location, *label;
+static lv_style_t style_line;
 
 #include "lvgl/src/drivers/evdev/lv_evdev.h" // for touch screen
 int main10()
 {
 	pthread_t tid;
+	pthread_t tid_gps;
+	pthread_create(&tid_gps, NULL, main7, NULL);
 	int rc = pthread_create(&tid, NULL, timer, NULL);
 	if (rc)
 	{
@@ -409,6 +416,7 @@ int main10()
 	}
 	lv_init();
 	lv_port_disp_init();
+	lv_font_t *font_hm = lv_binfont_create("A:/user/font_hm.bin");
 	lv_indev_t *indev = lv_evdev_create(LV_INDEV_TYPE_POINTER, "/dev/input/event0");
 	lv_evdev_set_calibration(indev, 0, 0, 1024, 600);
 
@@ -416,35 +424,41 @@ int main10()
 	bmpGetInfo("./map.bmp", &bmpInfo);
 	obj = lv_obj_create(lv_scr_act());
 	lv_obj_set_style_bg_color(obj, lv_color_hex(0xaaaaaa), LV_PART_MAIN);
-	lv_obj_set_style_radius(obj,0,LV_PART_MAIN);
-	lv_obj_set_size(obj, 700, 460);
+	lv_obj_set_style_radius(obj, 0, LV_PART_MAIN);
+	lv_obj_set_size(obj, 600, 460);
 	lv_obj_set_y(obj, 10);
-	
-	lv_obj_t *canvas = lv_canvas_create(obj);
+	lv_obj_set_x(obj, 10);
+	lv_obj_set_style_pad_all(obj, 0, 0);
+
+	canvas = lv_canvas_create(obj);
 
 	lv_obj_remove_style(obj, NULL, LV_PART_SCROLLBAR);
-	// lv_obj_remove_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
-	lv_obj_add_event_cb(canvas, touching_cb, LV_EVENT_PRESSING, NULL);
-	lv_obj_add_event_cb(canvas, released_cb, LV_EVENT_RELEASED, NULL);
+	lv_obj_remove_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
+	lv_obj_remove_style(obj, NULL, LV_PART_SCROLLBAR);
 
-	    /*Create an array for the points of the line*/
-    static lv_point_precise_t line_points[] = { {5, 5}, {70, 70}, {120, 10}, {180, 60}, {240, 10} };
-
-    /*Create style*/
-    static lv_style_t style_line;
-    lv_style_init(&style_line);
-    lv_style_set_line_width(&style_line, 8);
+	static lv_point_t myLocation;
+	myLocation.x = 50;
+	myLocation.y = 50;
+	/*Create an array for the points of the line*/
 	
-    lv_style_set_line_color(&style_line, lv_palette_main(LV_PALETTE_BLUE));
-    lv_style_set_line_rounded(&style_line, true);
+	/*Create style*/
+	lv_style_init(&style_line);
+	lv_style_set_line_width(&style_line, 8);
+	lv_style_set_line_color(&style_line, lv_palette_main(LV_PALETTE_RED));
+	lv_style_set_line_rounded(&style_line, true);
 
-    /*Create a line and apply the new style*/
-    lv_obj_t * line1;
-    line1 = lv_line_create(canvas);
-    lv_line_set_points(line1, line_points, 5);     /*Set the points*/
-	lv_obj_add_style(line1, &style_line, 0);
-
+	lv_obj_add_flag(canvas, LV_OBJ_FLAG_CLICKABLE);
+	lv_obj_add_event_cb(canvas, putmark_event_cb, LV_EVENT_SHORT_CLICKED, &myLocation);
+	lv_obj_add_event_cb(canvas, drag_event_handler, LV_EVENT_PRESSING, NULL);
 	lv_canvas_set_buffer(canvas, bmpInfo.bmpPixelArr, bmpInfo.bmpWidth, bmpInfo.bmpHeight, LV_COLOR_FORMAT_RGB888);
+
+	bt_location = lv_btn_create(lv_scr_act());
+	lv_obj_set_pos(bt_location, 675, 380);
+	lv_obj_set_size(bt_location, 50, 50);
+	label = lv_label_create(bt_location);
+	lv_obj_add_event_cb(bt_location, location_cb, LV_EVENT_CLICKED, &myLocation);
+	lv_label_set_text(label, LV_SYMBOL_GPS);
+	lv_obj_set_align(label, LV_ALIGN_CENTER);
 
 	// lv_obj_t *label = lv_label_create(lv_scr_act());
 	// lv_font_t *font_hm = lv_binfont_create("A:/user/font_hm.bin");
@@ -462,31 +476,68 @@ int main10()
 }
 #endif
 
-static int offsetx, offsety, tuoching;
-void touching_cb(lv_event_t *e)
+static void putmark_event_cb(lv_event_t *e)
 {
-	printf("touching\n");
-	lv_obj_move_foreground(obj);
+	// printf("putmark\n");
+	lv_obj_t *obj = canvas;
+	lv_point_t *mylocation = lv_event_get_user_data(e);
 
-	lv_point_t click_point;
-	lv_indev_get_point(lv_indev_get_act(), &click_point);
-	printf("x:%d y:%d\n", click_point.x, click_point.y);
-	if (tuoching == 0 && click_point.y - lv_obj_get_y(obj) > 20)
-		return;
-
-	if (tuoching == 0)
+	static lv_obj_t *mark;
+	if (mark == NULL)
 	{
-		offsetx = click_point.x - lv_obj_get_x(obj);
-		offsety = click_point.y - lv_obj_get_y(obj);
-		tuoching = 1;
-		return;
+		mark = lv_label_create(obj);
+		lv_label_set_text(mark, LV_SYMBOL_CHARGE);
 	}
-	lv_obj_set_pos(obj, click_point.x - offsetx, click_point.y - offsety);
+	lv_indev_t *indev = lv_indev_active();
+
+	lv_point_t point;
+	lv_indev_get_point(indev, &point);
+	// printf("lv_obj_get_width:%d",lv_obj_get_width(mark));
+	int32_t x = point.x - lv_obj_get_x_aligned(obj) - lv_obj_get_width(mark);
+	int32_t y = point.y - lv_obj_get_y_aligned(obj) - lv_obj_get_height(mark);
+	lv_obj_set_pos(mark, x, y);
+	static lv_obj_t *line1;
+	if (line1 == NULL)
+	{
+		line1 = lv_line_create(obj);
+		lv_obj_add_style(line1, &style_line, 0);
+	}
+	static lv_point_precise_t line_points[2];
+	line_points[0].x = mylocation->x+LEFT_OFFSET, line_points[0].y = mylocation->y+LEFT_OFFSET;
+	line_points[1].x = x, line_points[1].y = y;
+
+	printf("x:%d,y:%d\n", x, y);
+	printf("x:%d,y:%d\n", mylocation->x, mylocation->y);
+	lv_line_set_points(line1, line_points, 2); /*Set the points*/
 }
-void released_cb(lv_event_t *e)
+
+static void drag_event_handler(lv_event_t *e)
 {
-	printf("released\n");
-	tuoching = 0;
+	lv_obj_t *obj = lv_event_get_target(e);
+
+	lv_indev_t *indev = lv_indev_active();
+	if (indev == NULL)
+		return;
+
+	lv_point_t vect;
+	lv_indev_get_vect(indev, &vect);
+
+	int32_t x = lv_obj_get_x_aligned(obj) + vect.x;
+	int32_t y = lv_obj_get_y_aligned(obj) + vect.y;
+	lv_obj_set_pos(obj, x, y);
+}
+
+void location_cb(lv_event_t *e)
+{
+	lv_point_t *point = lv_event_get_user_data(e);
+	static lv_obj_t *label;
+	if (label == NULL)
+	{
+		label = lv_label_create(canvas);
+		lv_label_set_text(label, LV_SYMBOL_HOME);
+	}
+	lv_obj_set_pos(label, point->x, point->y);
+	lv_obj_set_pos(canvas, (600 / 2) - point->x, (460 / 2) - point->y);
 }
 
 int main()
