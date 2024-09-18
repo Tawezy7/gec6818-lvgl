@@ -81,13 +81,13 @@ void graphPrint(Graph *graph)
 		int i, j;
 		putchar('\t');
 		for (i = 0; i < graph->Vnum; i++)
-			printf("%c\t", graph->V[i]);
+			printf("%d\t", graph->V[i]);
 		printf("\n");
 
 		// 打印关系集合
 		for (i = 0; i < graph->Vnum; i++)
 		{
-			printf("%c\t", graph->V[i]);
+			printf("%d\t", graph->V[i]);
 			for (j = 0; j < graph->Vnum; j++)
 			{
 				printf("%d\t", graph->adj[i][j]);
@@ -105,6 +105,9 @@ int prev[MAXN]; // 用于记录路径上的前驱节点
 // 对辅助数组进行初始化 参数为图 以及 源点下标
 void graphDJSTArrInit(Graph *graph, int Vindex)
 {
+	memset(s, 0, sizeof(int) * MAXN);
+	memset(dist, 0, sizeof(int) * MAXN);
+	memset(prev, 0, sizeof(int) * MAXN);
 	// 源点到源点之间的最短路径已被求出
 	s[Vindex] = 1;
 	prev[Vindex] = -1; // 源点没有前驱
@@ -131,7 +134,6 @@ void graphDJST(Graph *graph, int Vindex)
 	if (graph)
 	{
 		graphDJSTArrInit(graph, Vindex);
-
 		int n = graph->Vnum;
 		while (n--)
 		{
@@ -159,11 +161,10 @@ void graphDJST(Graph *graph, int Vindex)
 				}
 			}
 		}
-
 		// 输出每个顶点的最短路径
 		for (int i = 0; i < graph->Vnum; i++)
 		{
-			printf("%c->%c:%d\n", graph->V[Vindex], graph->V[i], dist[i]);
+			printf("%d->%d:%d\n", graph->V[Vindex], graph->V[i], dist[i]);
 			printf("路径: ");
 			int path[MAXN];
 			int count = 0;
@@ -179,11 +180,83 @@ void graphDJST(Graph *graph, int Vindex)
 			// 反向输出路径
 			for (int j = count - 1; j >= 0; j--)
 			{
-				printf("%c", graph->V[path[j]]);
+				printf("%d", graph->V[path[j]]);
 				if (j > 0)
 					printf(" -> ");
 			}
 			printf("\n");
 		}
+	}
+}
+
+// 迪杰斯特拉算法  求源点Vindex 到 desc顶点的最短路径
+my_minPath_t gps_graphDJST(Graph *graph, int Vindex, int desc)
+{
+	if (graph)
+	{
+		graphDJSTArrInit(graph, Vindex);
+		int n = graph->Vnum;
+		while (n--)
+		{
+			// 找出当前未被标记的路径长度中的最短的路径 作为最优路径
+			int min = MAXLENGTH; // MAXLENGTH表示无穷
+			int minIndex = -1;
+			for (int i = 0; i < graph->Vnum; i++)
+			{
+				if (s[i] == 0 && dist[i] < min)
+				{
+					min = dist[i];
+					minIndex = i;
+				}
+			}
+
+			s[minIndex] = 1;
+
+			// 通过最优路径去更新其他路径
+			for (int i = 0; i < graph->Vnum; i++)
+			{
+				if (s[i] == 0 && graph->adj[minIndex][i] != 0 && (graph->adj[minIndex][i] + dist[minIndex] < dist[i]))
+				{
+					dist[i] = graph->adj[minIndex][i] + dist[minIndex];
+					prev[i] = minIndex; // 更新前驱节点
+				}
+			}
+		}
+		// 输出顶点的最短路径
+		printf("%d->%d:%d\n", graph->V[Vindex], graph->V[desc], dist[desc]);
+		printf("路径: ");
+		int path[MAXN];
+		int count = 0;
+		int tmp = desc;
+
+		// 追踪路径
+		while (tmp != -1)
+		{
+			path[count++] = tmp;
+			tmp = prev[tmp];
+		}
+
+		// 反向输出路径
+
+		int *minpatharr = malloc(count * sizeof(int));
+
+		int k = 0;
+		for (int j = count - 1; j >= 0; j--)
+		{
+			minpatharr[k++] = graph->V[path[j]];
+			printf("%d", graph->V[path[j]]);
+			if (j > 0)
+				printf(" -> ");
+		}
+		printf("\n");
+
+		my_minPath_t minPath;
+		minPath.path = minpatharr;
+		minPath.size = count;
+		// for (int i = 0; i < minPath.size; i++)
+		// {
+		// 	printf("%d ", minPath.path[i]);
+		// }
+		return minPath;
 	}
 }

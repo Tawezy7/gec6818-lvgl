@@ -21,6 +21,12 @@ typedef struct graph
 	//...	
 }Graph;
 
+typedef struct
+{
+    int *path;
+	int size;
+}my_minPath_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -31,6 +37,7 @@ void graphUninit(Graph * graph);
 void graphPrint(Graph * graph);
 void graphDJSTArrInit(Graph * graph, int Vindex);
 void graphDJST(Graph * graph, int Vindex);
+my_minPath_t gps_graphDJST(Graph *graph, int Vindex, int desc);
 
 #ifdef __cplusplus
 }

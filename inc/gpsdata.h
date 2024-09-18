@@ -12,10 +12,14 @@ extern "C" {
 #include "stdint.h"
 
 typedef struct {
-    int32_t latitude;
-    int32_t longitude;
-} GPSData;
+    int32_t x;
+    int32_t y;
+} my_point_t;
+
+extern const my_point_t gps_data[48];
+
 void gps_graphVRInput(Graph *graph);
+int gps_getminDistPoint(my_point_t point, my_point_t* pointlist, int size);
     /*...*/
 
 #ifdef __cplusplus

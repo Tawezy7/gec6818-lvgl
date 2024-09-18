@@ -359,15 +359,32 @@ E G 9
 H I 5
 # # 6
 */
+
+/*
+0123456789
+0 1 5
+0 4 12
+0 2 17
+1 4 12
+2 5 1
+3 4 8
+3 6 4
+3 8 2
+4 5 6
+4 6 9
+7 8 5
+# # 6
+*/
+#include "gpsdata.h"
 int main9()
 {
 	Graph *graph = graphInit();
 
-	graphVRInput(graph);
+	gps_graphVRInput(graph);
 
-	graphPrint(graph);
+	// graphPrint(graph);
 
-	graphDJST(graph, 0);
+	gps_graphDJST(graph, 0, 34);
 
 	graphUninit(graph);
 
@@ -382,6 +399,7 @@ int main9()
 #include "lv_port_indev.h"
 #include "pthread.h"
 #include "lv_demos.h"
+#include "gpsdata.h"
 
 void *timer(void *arg)
 {
@@ -397,6 +415,7 @@ void *timer(void *arg)
 static void drag_event_handler(lv_event_t *e);
 static void putmark_event_cb(lv_event_t *e);
 void location_cb(lv_event_t *e);
+Graph *graph; // 图
 lv_obj_t *obj;
 lv_obj_t *canvas;
 lv_obj_t *bt_location, *label;
@@ -414,6 +433,10 @@ int main10()
 		printf("ERROR; return code from pthread_create() is %d\n", rc);
 		exit(-1);
 	}
+
+	graph = graphInit();
+	gps_graphVRInput(graph);
+
 	lv_init();
 	lv_port_disp_init();
 	lv_font_t *font_hm = lv_binfont_create("A:/user/font_hm.bin");
@@ -437,10 +460,10 @@ int main10()
 	lv_obj_remove_style(obj, NULL, LV_PART_SCROLLBAR);
 
 	static lv_point_t myLocation;
-	myLocation.x = 50;
-	myLocation.y = 50;
+	myLocation.x = 1000;
+	myLocation.y = 500;
 	/*Create an array for the points of the line*/
-	
+
 	/*Create style*/
 	lv_style_init(&style_line);
 	lv_style_set_line_width(&style_line, 8);
@@ -459,14 +482,6 @@ int main10()
 	lv_obj_add_event_cb(bt_location, location_cb, LV_EVENT_CLICKED, &myLocation);
 	lv_label_set_text(label, LV_SYMBOL_GPS);
 	lv_obj_set_align(label, LV_ALIGN_CENTER);
-
-	// lv_obj_t *label = lv_label_create(lv_scr_act());
-	// lv_font_t *font_hm = lv_binfont_create("A:/user/font_hm.bin");
-	// printf("Success to load font\n");
-	// lv_label_set_long_mode(label, LV_LABEL_LONG_WRAP);
-	// lv_obj_set_width(label, 320);
-	// lv_obj_set_style_text_font(label, font_hm, 0);
-	// lv_label_set_text(label, "ESP32-S3 是一款集成 2.4 GHz Wi-Fi 和 Bluetooth 5 (LE) 的 MCU 芯片，支持远距离模式 (Long Range)。 ESP32-S3 搭载 Xtensa® 32 位 LX7 双核处理器，主频高达 240 MHz，内置 512 KB SRAM (TCM)，具有 45 个可编程 GPIO 管脚和丰富的通信接口。ESP32-S3 支持更大容量的高速 Octal SPI flash 和片外 RAM，支持用户配置数据缓存与指令缓存。ESP32-S3 集成 2.4 GHz Wi-Fi (802.11 b/g/n)，支持 40 MHz 带宽；其低功耗蓝牙子系统支持 Bluetooth 5 (LE) 和 Bluetooth Mesh，可通过 Coded PHY 与广播扩展实现远距离通信。它还支持 2 Mbps PHY，用于提高传输速度和数据吞吐量。ESP32-S3 的 Wi-Fi 和 Bluetooth LE 射频性能优越，在高温下也能稳定工作。");
 
 	while (1)
 	{
@@ -502,13 +517,29 @@ static void putmark_event_cb(lv_event_t *e)
 		line1 = lv_line_create(obj);
 		lv_obj_add_style(line1, &style_line, 0);
 	}
-	static lv_point_precise_t line_points[2];
-	line_points[0].x = mylocation->x+LEFT_OFFSET, line_points[0].y = mylocation->y+LEFT_OFFSET;
-	line_points[1].x = x, line_points[1].y = y;
+	my_point_t end_point = {x, y};
+	my_point_t start_point = {mylocation->x, mylocation->y};
 
-	printf("x:%d,y:%d\n", x, y);
-	printf("x:%d,y:%d\n", mylocation->x, mylocation->y);
-	lv_line_set_points(line1, line_points, 2); /*Set the points*/
+	int a = gps_getminDistPoint(start_point, gps_data, 48);
+	int b = gps_getminDistPoint(end_point, gps_data, 48);
+	my_minPath_t path = gps_graphDJST(graph, a, b);
+
+	static lv_point_precise_t *line_points;
+	if (line_points != NULL)
+	{
+		free(line_points);
+	}
+	line_points = (lv_point_precise_t *)malloc(sizeof(lv_point_precise_t) * (path.size + 2));
+
+	line_points[0].x = mylocation->x, line_points[0].y = mylocation->y;
+	for (int i = 0; i < path.size; i++)
+	{
+		line_points[i + 1].x = gps_data[path.path[i]].x, line_points[i + 1].y = gps_data[path.path[i]].y;
+	}
+	line_points[path.size + 1].x = x, line_points[path.size + 1].y = y;
+
+	lv_line_set_points(line1, line_points, path.size + 2); /*Set the points*/
+
 }
 
 static void drag_event_handler(lv_event_t *e)
