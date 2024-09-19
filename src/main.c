@@ -414,12 +414,51 @@ void *timer(void *arg)
 
 static void drag_event_handler(lv_event_t *e);
 static void putmark_event_cb(lv_event_t *e);
+static void close_event_handler(lv_event_t * e);
+
 void location_cb(lv_event_t *e);
 Graph *graph; // 图
 lv_obj_t *obj;
+lv_obj_t *obj2;
 lv_obj_t *canvas;
+lv_obj_t *canvas2;
 lv_obj_t *bt_location, *label;
 static lv_style_t style_line;
+lv_obj_t *cont;
+lv_obj_t *btn_close;
+
+// 定义碰撞箱结构体
+typedef struct {
+    int x;
+    int y;
+    int width;
+    int height;
+} BoundingBox;
+
+// 判断一个点是否在碰撞箱内的函数
+int isPointInBox(BoundingBox box, float px, float py) {
+    if (px >= box.x && px <= box.x + box.width &&
+        py >= box.y && py <= box.y + box.height) {
+        return 1; // 点在碰撞箱内
+    }
+    return 0; // 点不在碰撞箱内
+}
+
+struct bmpInfo bmpInfo_earth; 		//地球 967，279		
+struct bmpInfo bmpInfo_sw;			//生物与化学工程学院 523，943
+struct bmpInfo bmpInfo_network;		//网络与现代教育技术中心 1175，590
+struct bmpInfo bmpInfo_mxyd;		//敏学一栋 1553，424
+struct bmpInfo bmpInfo_library;		//图书馆 876，928
+struct bmpInfo bmpInfo_lgl;			//理工楼 1206，287
+
+#define BOX_WIDTH 100
+
+BoundingBox earth_boundingBox = {967-BOX_WIDTH/2,279-BOX_WIDTH/2, BOX_WIDTH, BOX_WIDTH};
+BoundingBox sw_boundingBox = {523-BOX_WIDTH/2,943-BOX_WIDTH/2, BOX_WIDTH, BOX_WIDTH};
+BoundingBox network_boundingBox = {1175-BOX_WIDTH/2,590-BOX_WIDTH/2, BOX_WIDTH, BOX_WIDTH};
+BoundingBox mxyd_boundingBox = {1553-BOX_WIDTH/2,424-BOX_WIDTH/2, BOX_WIDTH, BOX_WIDTH};
+BoundingBox library_boundingBox = {876-BOX_WIDTH/2,928-BOX_WIDTH/2, BOX_WIDTH, BOX_WIDTH};
+BoundingBox lgl_boundingBox = {1206-BOX_WIDTH/2,287-BOX_WIDTH/2, BOX_WIDTH, BOX_WIDTH};
 
 #include "lvgl/src/drivers/evdev/lv_evdev.h" // for touch screen
 int main10()
@@ -445,6 +484,14 @@ int main10()
 
 	struct bmpInfo bmpInfo;
 	bmpGetInfo("./map.bmp", &bmpInfo);
+
+	bmpGetInfo("./earth.bmp", &bmpInfo_earth);
+	bmpGetInfo("./sw.bmp", &bmpInfo_sw);
+	bmpGetInfo("./network.bmp", &bmpInfo_network);
+	bmpGetInfo("./mxyd.bmp", &bmpInfo_mxyd);
+	bmpGetInfo("./library.bmp", &bmpInfo_library);
+	bmpGetInfo("./lgl.bmp", &bmpInfo_lgl);
+
 	obj = lv_obj_create(lv_scr_act());
 	lv_obj_set_style_bg_color(obj, lv_color_hex(0xaaaaaa), LV_PART_MAIN);
 	lv_obj_set_style_radius(obj, 0, LV_PART_MAIN);
@@ -483,6 +530,36 @@ int main10()
 	lv_label_set_text(label, LV_SYMBOL_GPS);
 	lv_obj_set_align(label, LV_ALIGN_CENTER);
 
+	//图片容器对象
+	obj2 = lv_obj_create(lv_scr_act());
+	lv_obj_set_style_bg_color(obj2, lv_color_hex(0xaaaaaa), LV_PART_MAIN);
+	lv_obj_set_style_radius(obj2, 0, LV_PART_MAIN);
+	lv_obj_set_size(obj2, 560, 420);
+	lv_obj_set_y(obj2, 20);
+	lv_obj_set_x(obj2, 20);
+	lv_obj_set_style_pad_all(obj2, 0, 0);
+	printf("obj2\n");
+	//图片对象
+	btn_close = lv_btn_create(obj2);
+	lv_obj_set_pos(btn_close, 530, 10);
+	lv_obj_set_size(btn_close, 20, 20);
+	lv_win_add_button(obj2, LV_SYMBOL_CLOSE, 20);
+    lv_obj_add_event_cb(btn_close, close_event_handler, LV_EVENT_CLICKED, obj2);
+
+	printf("2\n");
+
+	lv_obj_t* obj3 = lv_obj_create(obj2);
+	canvas2 = lv_canvas_create(obj3);
+	lv_obj_add_flag(canvas2, LV_OBJ_FLAG_CLICKABLE);
+	lv_obj_add_event_cb(canvas2, drag_event_handler, LV_EVENT_PRESSING, NULL);
+	lv_obj_set_pos(obj3, 10, 50);
+	lv_obj_set_size(obj3, 535, 360);
+	lv_obj_remove_style(obj3, NULL, LV_PART_SCROLLBAR);
+	lv_obj_remove_flag(obj3, LV_OBJ_FLAG_SCROLLABLE);
+	lv_obj_set_style_radius(obj3, 0, LV_PART_MAIN);
+    lv_obj_add_flag(obj2,LV_OBJ_FLAG_HIDDEN); //隐藏图片容器对象
+
+
 	while (1)
 	{
 		lv_timer_handler();
@@ -490,6 +567,13 @@ int main10()
 	}
 }
 #endif
+
+static void close_event_handler(lv_event_t * e)
+{
+    lv_obj_t * obj = lv_event_get_user_data(e);
+    lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN); //隐藏图片容器对象
+    LV_LOG_USER("Button %d clicked", (int)lv_obj_get_index(obj));
+}
 
 static void putmark_event_cb(lv_event_t *e)
 {
@@ -539,6 +623,43 @@ static void putmark_event_cb(lv_event_t *e)
 	line_points[path.size + 1].x = x, line_points[path.size + 1].y = y;
 
 	lv_line_set_points(line1, line_points, path.size + 2); /*Set the points*/
+
+	// 点击显示图片
+	printf("x:%d,y:%d\n", x, y);
+	if (isPointInBox(earth_boundingBox,x, y))
+	{
+		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); //显示图片容器对象
+		lv_canvas_set_buffer(canvas2, bmpInfo_earth.bmpPixelArr, bmpInfo_earth.bmpWidth, bmpInfo_earth.bmpHeight, LV_COLOR_FORMAT_RGB888);
+	}
+	else if (isPointInBox(sw_boundingBox,x, y))
+	{
+		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); //显示图片容器对象
+		lv_canvas_set_buffer(canvas2, bmpInfo_sw.bmpPixelArr, bmpInfo_sw.bmpWidth, bmpInfo_sw.bmpHeight, LV_COLOR_FORMAT_RGB888);
+	}
+	else if (isPointInBox(network_boundingBox,x, y))
+	{
+		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); //显示图片容器对象
+		lv_canvas_set_buffer(canvas2, bmpInfo_network.bmpPixelArr, bmpInfo_network.bmpWidth, bmpInfo_network.bmpHeight, LV_COLOR_FORMAT_RGB888);
+	}
+	else if (isPointInBox(mxyd_boundingBox,x, y))
+	{
+		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); //显示图片容器对象
+		lv_canvas_set_buffer(canvas2, bmpInfo_mxyd.bmpPixelArr, bmpInfo_mxyd.bmpWidth, bmpInfo_mxyd.bmpHeight, LV_COLOR_FORMAT_RGB888);
+	}
+	else if (isPointInBox(library_boundingBox,x, y))
+	{
+		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); //显示图片容器对象
+		lv_canvas_set_buffer(canvas2, bmpInfo_library.bmpPixelArr, bmpInfo_library.bmpWidth, bmpInfo_library.bmpHeight, LV_COLOR_FORMAT_RGB888);
+	}
+	else if (isPointInBox(lgl_boundingBox,x, y))
+	{
+		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); //显示图片容器对象
+		lv_canvas_set_buffer(canvas2, bmpInfo_lgl.bmpPixelArr, bmpInfo_lgl.bmpWidth, bmpInfo_lgl.bmpHeight, LV_COLOR_FORMAT_RGB888);
+	}
+	else
+	{
+	    lv_obj_add_flag(obj2, LV_OBJ_FLAG_HIDDEN); //隐藏图片容器对象
+	}
 
 }
 
