@@ -307,39 +307,20 @@ int main7()
 	return 0;
 }
 
-int main8()
+void *GY_39(void *arg)
 {
 	// ttySAC1  com1
 	// ttySAC2  com2
-	lcdInit();
 	int uart1_fd = uart_init("/dev/ttySAC1");
-	lcdFflush(0x00FFFFFF);
-	struct bmpInfo bmpInfo;
-	memset(&bmpInfo, 0, sizeof(bmpInfo));
-	bmpGetInfo("./wd.bmp", &bmpInfo);
-	bmpReverse(&bmpInfo);
-
 	while (1)
 	{
 		get_GZ(uart1_fd);
-		printf("GZ:%d\n", GZ);
 		sleep(1);
 		get_other(uart1_fd);
-		if (WD >= 31)
-		{
-			bmpShow(0, 0, &bmpInfo);
-		}
-		else
-		{
-			lcdFflush(0x00FFFFFF);
-		}
 		char str[50];
-		printf("WD:%3d SD:%3d QY:%6d HB:%4d\n", WD, SD, QY, HB);
-		sprintf(str, "WD:%3d SD:%3d QY:%6d HB:%4d", WD, SD, QY, HB);
-		lcdShowString8x16(0, 0, str);
+		// printf("WD:%3d SD:%3d QY:%6d HB:%4d\n", WD, SD, QY, HB);
 		sleep(1);
 	}
-
 	close(uart1_fd);
 }
 
@@ -414,9 +395,11 @@ void *timer(void *arg)
 
 static void drag_event_handler(lv_event_t *e);
 static void putmark_event_cb(lv_event_t *e);
-static void close_event_handler(lv_event_t * e);
-
+static void close_event_handler(lv_event_t *e);
+static void tempshow_cb(lv_event_t *e);
 void location_cb(lv_event_t *e);
+
+// variables
 Graph *graph; // 图
 lv_obj_t *obj;
 lv_obj_t *obj2;
@@ -426,46 +409,52 @@ lv_obj_t *bt_location, *label;
 static lv_style_t style_line;
 lv_obj_t *cont;
 lv_obj_t *btn_close;
+lv_obj_t *label_wd;
 
 // 定义碰撞箱结构体
-typedef struct {
-    int x;
-    int y;
-    int width;
-    int height;
+typedef struct
+{
+	int x;
+	int y;
+	int width;
+	int height;
 } BoundingBox;
 
 // 判断一个点是否在碰撞箱内的函数
-int isPointInBox(BoundingBox box, float px, float py) {
-    if (px >= box.x && px <= box.x + box.width &&
-        py >= box.y && py <= box.y + box.height) {
-        return 1; // 点在碰撞箱内
-    }
-    return 0; // 点不在碰撞箱内
+int isPointInBox(BoundingBox box, float px, float py)
+{
+	if (px >= box.x && px <= box.x + box.width &&
+		py >= box.y && py <= box.y + box.height)
+	{
+		return 1; // 点在碰撞箱内
+	}
+	return 0; // 点不在碰撞箱内
 }
 
-struct bmpInfo bmpInfo_earth; 		//地球 967，279		
-struct bmpInfo bmpInfo_sw;			//生物与化学工程学院 523，943
-struct bmpInfo bmpInfo_network;		//网络与现代教育技术中心 1175，590
-struct bmpInfo bmpInfo_mxyd;		//敏学一栋 1553，424
-struct bmpInfo bmpInfo_library;		//图书馆 876，928
-struct bmpInfo bmpInfo_lgl;			//理工楼 1206，287
+struct bmpInfo bmpInfo_earth;	// 地球 967，279
+struct bmpInfo bmpInfo_sw;		// 生物与化学工程学院 523，943
+struct bmpInfo bmpInfo_network; // 网络与现代教育技术中心 1175，590
+struct bmpInfo bmpInfo_mxyd;	// 敏学一栋 1553，424
+struct bmpInfo bmpInfo_library; // 图书馆 876，928
+struct bmpInfo bmpInfo_lgl;		// 理工楼 1206，287
 
 #define BOX_WIDTH 100
 
-BoundingBox earth_boundingBox = {967-BOX_WIDTH/2,279-BOX_WIDTH/2, BOX_WIDTH, BOX_WIDTH};
-BoundingBox sw_boundingBox = {523-BOX_WIDTH/2,943-BOX_WIDTH/2, BOX_WIDTH, BOX_WIDTH};
-BoundingBox network_boundingBox = {1175-BOX_WIDTH/2,590-BOX_WIDTH/2, BOX_WIDTH, BOX_WIDTH};
-BoundingBox mxyd_boundingBox = {1553-BOX_WIDTH/2,424-BOX_WIDTH/2, BOX_WIDTH, BOX_WIDTH};
-BoundingBox library_boundingBox = {876-BOX_WIDTH/2,928-BOX_WIDTH/2, BOX_WIDTH, BOX_WIDTH};
-BoundingBox lgl_boundingBox = {1206-BOX_WIDTH/2,287-BOX_WIDTH/2, BOX_WIDTH, BOX_WIDTH};
+BoundingBox earth_boundingBox = {967 - BOX_WIDTH / 2, 279 - BOX_WIDTH / 2, BOX_WIDTH, BOX_WIDTH};
+BoundingBox sw_boundingBox = {523 - BOX_WIDTH / 2, 943 - BOX_WIDTH / 2, BOX_WIDTH, BOX_WIDTH};
+BoundingBox network_boundingBox = {1175 - BOX_WIDTH / 2, 590 - BOX_WIDTH / 2, BOX_WIDTH, BOX_WIDTH};
+BoundingBox mxyd_boundingBox = {1553 - BOX_WIDTH / 2, 424 - BOX_WIDTH / 2, BOX_WIDTH, BOX_WIDTH};
+BoundingBox library_boundingBox = {876 - BOX_WIDTH / 2, 928 - BOX_WIDTH / 2, BOX_WIDTH, BOX_WIDTH};
+BoundingBox lgl_boundingBox = {1206 - BOX_WIDTH / 2, 287 - BOX_WIDTH / 2, BOX_WIDTH, BOX_WIDTH};
 
 #include "lvgl/src/drivers/evdev/lv_evdev.h" // for touch screen
 int main10()
 {
 	pthread_t tid;
 	pthread_t tid_gps;
+	pthread_t tid_gy39;
 	pthread_create(&tid_gps, NULL, main7, NULL);
+	pthread_create(&tid_gy39, NULL, GY_39, NULL);
 	int rc = pthread_create(&tid, NULL, timer, NULL);
 	if (rc)
 	{
@@ -507,8 +496,8 @@ int main10()
 	lv_obj_remove_style(obj, NULL, LV_PART_SCROLLBAR);
 
 	static lv_point_t myLocation;
-	myLocation.x = 1000;
-	myLocation.y = 500;
+	myLocation.x = 1192;
+	myLocation.y = 195;
 	/*Create an array for the points of the line*/
 
 	/*Create style*/
@@ -530,7 +519,7 @@ int main10()
 	lv_label_set_text(label, LV_SYMBOL_GPS);
 	lv_obj_set_align(label, LV_ALIGN_CENTER);
 
-	//图片容器对象
+	// 图片容器对象
 	obj2 = lv_obj_create(lv_scr_act());
 	lv_obj_set_style_bg_color(obj2, lv_color_hex(0xaaaaaa), LV_PART_MAIN);
 	lv_obj_set_style_radius(obj2, 0, LV_PART_MAIN);
@@ -538,17 +527,14 @@ int main10()
 	lv_obj_set_y(obj2, 20);
 	lv_obj_set_x(obj2, 20);
 	lv_obj_set_style_pad_all(obj2, 0, 0);
-	printf("obj2\n");
-	//图片对象
+	// 图片对象
 	btn_close = lv_btn_create(obj2);
-	lv_obj_set_pos(btn_close, 530, 10);
-	lv_obj_set_size(btn_close, 20, 20);
-	lv_win_add_button(obj2, LV_SYMBOL_CLOSE, 20);
-    lv_obj_add_event_cb(btn_close, close_event_handler, LV_EVENT_CLICKED, obj2);
+	lv_obj_set_pos(btn_close, 520, 10);
+	lv_obj_set_size(btn_close, 30, 30);
+	lv_win_add_button(obj2, LV_SYMBOL_CLOSE, 30);
+	lv_obj_add_event_cb(btn_close, close_event_handler, LV_EVENT_CLICKED, obj2);
 
-	printf("2\n");
-
-	lv_obj_t* obj3 = lv_obj_create(obj2);
+	lv_obj_t *obj3 = lv_obj_create(obj2);
 	canvas2 = lv_canvas_create(obj3);
 	lv_obj_add_flag(canvas2, LV_OBJ_FLAG_CLICKABLE);
 	lv_obj_add_event_cb(canvas2, drag_event_handler, LV_EVENT_PRESSING, NULL);
@@ -557,8 +543,13 @@ int main10()
 	lv_obj_remove_style(obj3, NULL, LV_PART_SCROLLBAR);
 	lv_obj_remove_flag(obj3, LV_OBJ_FLAG_SCROLLABLE);
 	lv_obj_set_style_radius(obj3, 0, LV_PART_MAIN);
-    lv_obj_add_flag(obj2,LV_OBJ_FLAG_HIDDEN); //隐藏图片容器对象
+	lv_obj_add_flag(obj2, LV_OBJ_FLAG_HIDDEN); // 隐藏图片容器对象
 
+	// 温度显示
+	label_wd = lv_label_create(lv_scr_act());
+	lv_obj_set_pos(label_wd, 620, 20);
+	lv_obj_set_style_text_font(label_wd, font_hm, 0);
+	lv_timer_create(tempshow_cb, 1000, NULL);
 
 	while (1)
 	{
@@ -568,11 +559,16 @@ int main10()
 }
 #endif
 
-static void close_event_handler(lv_event_t * e)
+static void tempshow_cb(lv_event_t *e)
 {
-    lv_obj_t * obj = lv_event_get_user_data(e);
-    lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN); //隐藏图片容器对象
-    LV_LOG_USER("Button %d clicked", (int)lv_obj_get_index(obj));
+	lv_label_set_text_fmt(label_wd, "温度:%3d℃", WD);
+}
+
+static void close_event_handler(lv_event_t *e)
+{
+	lv_obj_t *obj = lv_event_get_user_data(e);
+	lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN); // 隐藏图片容器对象
+	LV_LOG_USER("Button %d clicked", (int)lv_obj_get_index(obj));
 }
 
 static void putmark_event_cb(lv_event_t *e)
@@ -626,41 +622,40 @@ static void putmark_event_cb(lv_event_t *e)
 
 	// 点击显示图片
 	printf("x:%d,y:%d\n", x, y);
-	if (isPointInBox(earth_boundingBox,x, y))
+	if (isPointInBox(earth_boundingBox, x, y))
 	{
-		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); //显示图片容器对象
+		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); // 显示图片容器对象
 		lv_canvas_set_buffer(canvas2, bmpInfo_earth.bmpPixelArr, bmpInfo_earth.bmpWidth, bmpInfo_earth.bmpHeight, LV_COLOR_FORMAT_RGB888);
 	}
-	else if (isPointInBox(sw_boundingBox,x, y))
+	else if (isPointInBox(sw_boundingBox, x, y))
 	{
-		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); //显示图片容器对象
+		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); // 显示图片容器对象
 		lv_canvas_set_buffer(canvas2, bmpInfo_sw.bmpPixelArr, bmpInfo_sw.bmpWidth, bmpInfo_sw.bmpHeight, LV_COLOR_FORMAT_RGB888);
 	}
-	else if (isPointInBox(network_boundingBox,x, y))
+	else if (isPointInBox(network_boundingBox, x, y))
 	{
-		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); //显示图片容器对象
+		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); // 显示图片容器对象
 		lv_canvas_set_buffer(canvas2, bmpInfo_network.bmpPixelArr, bmpInfo_network.bmpWidth, bmpInfo_network.bmpHeight, LV_COLOR_FORMAT_RGB888);
 	}
-	else if (isPointInBox(mxyd_boundingBox,x, y))
+	else if (isPointInBox(mxyd_boundingBox, x, y))
 	{
-		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); //显示图片容器对象
+		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); // 显示图片容器对象
 		lv_canvas_set_buffer(canvas2, bmpInfo_mxyd.bmpPixelArr, bmpInfo_mxyd.bmpWidth, bmpInfo_mxyd.bmpHeight, LV_COLOR_FORMAT_RGB888);
 	}
-	else if (isPointInBox(library_boundingBox,x, y))
+	else if (isPointInBox(library_boundingBox, x, y))
 	{
-		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); //显示图片容器对象
+		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); // 显示图片容器对象
 		lv_canvas_set_buffer(canvas2, bmpInfo_library.bmpPixelArr, bmpInfo_library.bmpWidth, bmpInfo_library.bmpHeight, LV_COLOR_FORMAT_RGB888);
 	}
-	else if (isPointInBox(lgl_boundingBox,x, y))
+	else if (isPointInBox(lgl_boundingBox, x, y))
 	{
-		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); //显示图片容器对象
+		lv_obj_remove_flag(obj2, LV_OBJ_FLAG_HIDDEN); // 显示图片容器对象
 		lv_canvas_set_buffer(canvas2, bmpInfo_lgl.bmpPixelArr, bmpInfo_lgl.bmpWidth, bmpInfo_lgl.bmpHeight, LV_COLOR_FORMAT_RGB888);
 	}
 	else
 	{
-	    lv_obj_add_flag(obj2, LV_OBJ_FLAG_HIDDEN); //隐藏图片容器对象
+		lv_obj_add_flag(obj2, LV_OBJ_FLAG_HIDDEN); // 隐藏图片容器对象
 	}
-
 }
 
 static void drag_event_handler(lv_event_t *e)
